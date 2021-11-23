@@ -6,15 +6,15 @@
 	["tag", [
 		["tag", [
 			["punctuation", "<"],
-			"Child"
+			["class-name", "Child"]
 		]],
 		["attr-name", ["options"]],
 		["script", [
 			["script-punctuation", "="],
 			["punctuation", "{"],
 			["punctuation", "{"],
-			" track",
-			["punctuation", ":"],
+			["literal-property", "track"],
+			["operator", ":"],
 			["boolean", "true"],
 			["punctuation", "}"],
 			["punctuation", "}"]

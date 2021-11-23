@@ -1,45 +1,30 @@
-"use strict";
+// @ts-check
+'use strict';
 
-var TestDiscovery = require("./helper/test-discovery");
-var TestCase = require("./helper/test-case");
-var path = require("path");
-var argv = require("yargs").argv;
+const TestDiscovery = require('./helper/test-discovery');
+const TestCase = require('./helper/test-case');
+const path = require('path');
+const { argv } = require('yargs');
 
-var testSuite;
-if (argv.language) {
-	testSuite = TestDiscovery.loadSomeTests(__dirname + "/languages", argv.language);
-} else {
-	// load complete test suite
-	testSuite = TestDiscovery.loadAllTests(__dirname + "/languages");
-}
+const testSuite =
+	(argv.language)
+		? TestDiscovery.loadSomeTests(argv.language)
+		// load complete test suite
+		: TestDiscovery.loadAllTests();
+
+const update = !!argv.update;
 
 // define tests for all tests in all languages in the test suite
-for (var language in testSuite) {
-	if (!testSuite.hasOwnProperty(language)) {
-		continue;
-	}
+for (const [languageIdentifier, files] of testSuite) {
+	describe("Testing language '" + languageIdentifier + "'", function () {
+		this.timeout(10000);
 
-	(function (language, testFiles) {
-		describe("Testing language '" + language + "'", function () {
-			this.timeout(10000);
+		for (const filePath of files) {
+			const fileName = path.basename(filePath, path.extname(filePath));
 
-			testFiles.forEach(
-				function (filePath) {
-			        var fileName = path.basename(filePath, path.extname(filePath));
-
-			        it("– should pass test case '" + fileName + "'",
-			            function () {
-
-				            if (path.extname(filePath) === '.test') {
-					            TestCase.runTestCase(language, filePath);
-				            } else {
-					            TestCase.runTestsWithHooks(language, require(filePath));
-				            }
-
-			            }
-			        );
-				}
-			);
-		});
-	})(language, testSuite[language]);
+			it("– should pass test case '" + fileName + "'", function () {
+				TestCase.runTestCase(languageIdentifier, filePath, update ? 'update' : 'insert');
+			});
+		}
+	});
 }

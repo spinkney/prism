@@ -1,10 +1,40 @@
-"use strict";
+'use strict';
+const fs = require('fs');
+const { JSDOM } = require('jsdom');
+const components = require('../../components.json');
+const getLoader = require('../../dependencies');
+const coreChecks = require('./checks');
+const { languages: languagesCatalog, plugins: pluginsCatalog } = components;
 
-var fs = require("fs");
-var vm = require("vm");
-var components = require("../../components");
-var languagesCatalog = components.languages;
 
+/**
+ * @typedef {import('../../components/prism-core')} Prism
+ */
+
+/**
+ * @typedef PrismLoaderContext
+ * @property {Prism} Prism The Prism instance.
+ * @property {Set<string>} loaded A set of loaded components.
+ */
+
+/**
+ * @typedef {import("jsdom").DOMWindow & { Prism: Prism }} PrismWindow
+ *
+ * @typedef PrismDOM
+ * @property {JSDOM} dom
+ * @property {PrismWindow} window
+ * @property {Document} document
+ * @property {Prism} Prism
+ * @property {(languages: string | string[]) => void} loadLanguages
+ * @property {(plugins: string | string[]) => void} loadPlugins
+ */
+
+/** @type {Map<string, string>} */
+const fileSourceCache = new Map();
+/** @type {() => any} */
+let coreSupplierFunction = null;
+/** @type {Map<string, (Prism: any) => void>} */
+const languageCache = new Map();
 
 module.exports = {
 
@@ -12,11 +42,11 @@ module.exports = {
 	 * Creates a new Prism instance with the given language loaded
 	 *
 	 * @param {string|string[]} languages
-	 * @returns {Prism}
+	 * @returns {import('../../components/prism-core')}
 	 */
-	createInstance: function (languages) {
-		var context = {
-			loadedLanguages: [],
+	createInstance(languages) {
+		let context = {
+			loaded: new Set(),
 			Prism: this.createEmptyPrism()
 		};
 
@@ -26,55 +56,79 @@ module.exports = {
 	},
 
 	/**
-	 * Loads the given languages and appends the config to the given Prism object
+	 * Creates a new JavaScript DOM instance with Prism being loaded.
 	 *
-	 * @private
-	 * @param {string|string[]} languages
-	 * @param {{loadedLanguages: string[], Prism: Prism}} context
-	 * @returns {{loadedLanguages: string[], Prism: Prism}}
+	 * @returns {PrismDOM}
 	 */
-	loadLanguages: function (languages, context) {
-		if (typeof languages === 'string') {
-			languages = [languages];
-		}
-
-		var self = this;
-
-		languages.forEach(function (language) {
-			context = self.loadLanguage(language, context);
+	createPrismDOM() {
+		const dom = new JSDOM(``, {
+			runScripts: 'outside-only'
 		});
+		const window = dom.window;
 
-		return context;
+		window.self = window; // set self for plugins
+		window.eval(this.loadComponentSource('core'));
+
+		/** The set of loaded languages and plugins */
+		const loaded = new Set();
+
+		/**
+		 * Loads the given languages or plugins.
+		 *
+		 * @param {string | string[]} languagesOrPlugins
+		 */
+		const load = (languagesOrPlugins) => {
+			getLoader(components, toArray(languagesOrPlugins), [...loaded]).load(id => {
+				let source;
+				if (languagesCatalog[id]) {
+					source = this.loadComponentSource(id);
+				} else if (pluginsCatalog[id]) {
+					source = this.loadPluginSource(id);
+				} else {
+					throw new Error(`Language or plugin '${id}' not found.`);
+				}
+
+				window.eval(source);
+				loaded.add(id);
+			});
+		};
+
+		return {
+			dom,
+			window: /** @type {PrismWindow} */ (window),
+			document: window.document,
+			Prism: window.Prism,
+			loadLanguages: load,
+			loadPlugins: load,
+		};
 	},
 
 	/**
-	 * Loads the given language (including recursively loading the dependencies) and
-	 * appends the config to the given Prism object
+	 * Loads the given languages and appends the config to the given Prism object.
 	 *
 	 * @private
-	 * @param {string} language
-	 * @param {{loadedLanguages: string[], Prism: Prism}} context
-	 * @returns {{loadedLanguages: string[], Prism: Prism}}
+	 * @param {string|string[]} languages
+	 * @param {PrismLoaderContext} context
+	 * @returns {PrismLoaderContext}
 	 */
-	loadLanguage: function (language, context) {
-		if (!languagesCatalog[language]) {
-			throw new Error("Language '" + language + "' not found.");
-		}
+	loadLanguages(languages, context) {
+		getLoader(components, toArray(languages), [...context.loaded]).load(id => {
+			if (!languagesCatalog[id]) {
+				throw new Error(`Language '${id}' not found.`);
+			}
 
-		// the given language was already loaded
-		if (-1 < context.loadedLanguages.indexOf(language)) {
-			return context;
-		}
+			// get the function which adds the language from cache
+			let languageFunction = languageCache.get(id);
+			if (languageFunction === undefined) {
+				// make a function from the code which take "Prism" as an argument, so the language grammar
+				// references the function argument
+				const func = new Function('Prism', this.loadComponentSource(id));
+				languageCache.set(id, languageFunction = (Prism) => func(Prism));
+			}
+			languageFunction(context.Prism);
 
-		// if the language has a dependency -> load it first
-		if (languagesCatalog[language].require) {
-			context = this.loadLanguages(languagesCatalog[language].require, context);
-		}
-
-		// load the language itself
-		var languageSource = this.loadFileSource(language);
-		context.Prism = this.runFileWithContext(languageSource, {Prism: context.Prism}).Prism;
-		context.loadedLanguages.push(language);
+			context.loaded.add(id);
+		});
 
 		return context;
 	},
@@ -86,46 +140,72 @@ module.exports = {
 	 * @private
 	 * @returns {Prism}
 	 */
-	createEmptyPrism: function () {
-		var coreSource = this.loadFileSource("core");
-		var context = this.runFileWithContext(coreSource);
-		return context.Prism;
+	createEmptyPrism() {
+		if (!coreSupplierFunction) {
+			const source = this.loadComponentSource('core');
+			// Core exports itself in 2 ways:
+			//  1) it uses `module.exports = Prism` which what we'll use
+			//  2) it uses `global.Prism = Prism` which we want to sabotage to prevent leaking
+			const func = new Function('module', 'global', source);
+			coreSupplierFunction = () => {
+				const module = {
+					// that's all we care about
+					exports: {}
+				};
+				func(module, {});
+				return module.exports;
+			};
+		}
+		const Prism = coreSupplierFunction();
+		coreChecks(Prism);
+		return Prism;
 	},
 
-
 	/**
-	 * Cached file sources, to prevent massive HDD work
-	 *
-	 * @private
-	 * @type {Object.<string, string>}
-	 */
-	fileSourceCache: {},
-
-
-	/**
-	 * Loads the given file source as string
+	 * Loads the given component's file source as string
 	 *
 	 * @private
 	 * @param {string} name
 	 * @returns {string}
 	 */
-	loadFileSource: function (name) {
-		return this.fileSourceCache[name] = this.fileSourceCache[name] || fs.readFileSync(__dirname + "/../../components/prism-" + name + ".js", "utf8");
+	loadComponentSource(name) {
+		return this.loadFileSource(__dirname + '/../../components/prism-' + name + '.js');
 	},
 
-
 	/**
-	 * Runs a VM for a given file source with the given context
+	 * Loads the given plugin's file source as string
 	 *
 	 * @private
-	 * @param {string} fileSource
-	 * @param {*} [context]
-	 *
-	 * @returns {*}
+	 * @param {string} name
+	 * @returns {string}
 	 */
-	runFileWithContext: function (fileSource, context) {
-		context = context || {};
-		vm.runInNewContext(fileSource, context);
-		return context;
+	loadPluginSource(name) {
+		return this.loadFileSource(`${__dirname}/../../plugins/${name}/prism-${name}.js`);
+	},
+
+	/**
+	 * Loads the given file source as string
+	 *
+	 * @private
+	 * @param {string} src
+	 * @returns {string}
+	 */
+	loadFileSource(src) {
+		let content = fileSourceCache.get(src);
+		if (content === undefined) {
+			fileSourceCache.set(src, content = fs.readFileSync(src, 'utf8'));
+		}
+		return content;
 	}
 };
+
+/**
+ * Wraps the given value in an array if it's not an array already.
+ *
+ * @param {T[] | T} value
+ * @returns {T[]}
+ * @template T
+ */
+function toArray(value) {
+	return Array.isArray(value) ? value : [value];
+}

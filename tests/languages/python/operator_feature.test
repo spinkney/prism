@@ -7,8 +7,8 @@
 > >= >>
 = ==
 !=
+:=
 & | ^ ~
-or and not
 
 ----------------------------------------------------
 
@@ -22,8 +22,8 @@ or and not
 	["operator", ">"], ["operator", ">="], ["operator", ">>"],
 	["operator", "="], ["operator", "=="],
 	["operator", "!="],
-	["operator", "&"], ["operator", "|"], ["operator", "^"], ["operator", "~"],
-	["operator", "or"], ["operator", "and"], ["operator", "not"]
+	["operator", ":="],
+	["operator", "&"], ["operator", "|"], ["operator", "^"], ["operator", "~"]
 ]
 
 ----------------------------------------------------

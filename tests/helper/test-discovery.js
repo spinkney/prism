@@ -1,48 +1,39 @@
-"use strict";
+'use strict';
 
-var fs = require("fs");
-var path = require("path");
+const fs = require('fs');
+const path = require('path');
 
+const LANGUAGES_DIR = path.join(__dirname, '..', 'languages');
 
 module.exports = {
 
 	/**
 	 * Loads the list of all available tests
 	 *
-	 * @param {string} rootDir
-	 * @returns {Object.<string, string[]>}
+	 * @param {string} [rootDir]
+	 * @returns {Map<string, string[]>}
 	 */
-	loadAllTests: function (rootDir) {
-		var testSuite = {};
-		var self = this;
+	loadAllTests(rootDir) {
+		rootDir = rootDir || LANGUAGES_DIR;
 
-		this.getAllDirectories(rootDir).forEach(
-			function (language) {
-				testSuite[language] = self.getAllFiles(path.join(rootDir, language));
-			}
-		);
-
-		return testSuite;
+		return new Map(this.getAllDirectories(rootDir).map(language => {
+			return [language, this.getAllFiles(path.join(rootDir, language))];
+		}));
 	},
 
 	/**
 	 * Loads the list of available tests that match the given languages
 	 *
-	 * @param {string} rootDir
 	 * @param {string|string[]} languages
-	 * @returns {Object.<string, string[]>}
+	 * @param {string} [rootDir]
+	 * @returns {Map<string, string[]>}
 	 */
-	loadSomeTests: function (rootDir, languages) {
-		var testSuite = {};
-		var self = this;
+	loadSomeTests(languages, rootDir) {
+		rootDir = rootDir || LANGUAGES_DIR;
 
-		this.getSomeDirectories(rootDir, languages).forEach(
-			function (language) {
-				testSuite[language] = self.getAllFiles(path.join(rootDir, language));
-			}
-		);
-
-		return testSuite;
+		return new Map(this.getSomeDirectories(rootDir, languages).map(language => {
+			return [language, this.getAllFiles(path.join(rootDir, language))];
+		}));
 	},
 
 
@@ -51,14 +42,12 @@ module.exports = {
 	 * in the given src directory
 	 *
 	 * @param {string} src
-	 * @returns {Array.<string>}
+	 * @returns {string[]}
 	 */
-	getAllDirectories: function (src) {
-		return fs.readdirSync(src).filter(
-			function (file) {
-				return fs.statSync(path.join(src, file)).isDirectory();
-			}
-		);
+	getAllDirectories(src) {
+		return fs.readdirSync(src).filter(file => {
+			return fs.statSync(path.join(src, file)).isDirectory();
+		});
 	},
 
 	/**
@@ -67,30 +56,26 @@ module.exports = {
 	 *
 	 * @param {string} src
 	 * @param {string|string[]} languages
-	 * @returns {Array.<string>}
+	 * @returns {string[]}
 	 */
-	getSomeDirectories: function (src, languages) {
-		var self = this;
-		return fs.readdirSync(src).filter(
-			function (file) {
-				return fs.statSync(path.join(src, file)).isDirectory() && self.directoryMatches(file, languages);
-			}
-		);
+	getSomeDirectories(src, languages) {
+		return fs.readdirSync(src).filter(file => {
+			return fs.statSync(path.join(src, file)).isDirectory() && this.directoryMatches(file, languages);
+		});
 	},
 
 	/**
 	 * Returns whether a directory matches one of the given languages.
+	 *
 	 * @param {string} directory
 	 * @param {string|string[]} languages
 	 */
-	directoryMatches: function (directory, languages) {
+	directoryMatches(directory, languages) {
 		if (!Array.isArray(languages)) {
 			languages = [languages];
 		}
-		var dirLanguages = directory.split(/!?\+!?/);
-		return dirLanguages.some(function (lang) {
-			return languages.indexOf(lang) >= 0;
-		});
+		const dirLanguages = directory.split(/!?\+!?/);
+		return dirLanguages.some(lang => languages.indexOf(lang) >= 0);
 	},
 
 
@@ -99,17 +84,16 @@ module.exports = {
 	 *
 	 * @private
 	 * @param {string} src
-	 * @returns {Array.<string>}
+	 * @returns {string[]}
 	 */
-	getAllFiles: function (src) {
-		return fs.readdirSync(src).filter(
-			function (fileName) {
-				return fs.statSync(path.join(src, fileName)).isFile();
-			}
-		).map(
-			function (fileName) {
+	getAllFiles(src) {
+		return fs.readdirSync(src)
+			.filter(fileName => {
+				return path.extname(fileName) === '.test'
+					&& fs.statSync(path.join(src, fileName)).isFile();
+			})
+			.map(fileName => {
 				return path.join(src, fileName);
-			}
-		);
+			});
 	}
 };

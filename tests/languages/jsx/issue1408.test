@@ -13,16 +13,17 @@
 			["script-punctuation", "="],
 			["punctuation", "{"],
 			["punctuation", "{"],
-			" marginLeft",
-			["punctuation", ":"],
+			["literal-property", "marginLeft"],
+			["operator", ":"],
 			["template-string", [
-				["string", "`"],
+				["template-punctuation", "`"],
 				["interpolation", [
 					["interpolation-punctuation", "${"],
 					"sidePanelWidth",
 					["interpolation-punctuation", "}"]
 				]],
-				["string", "px`"]
+				["string", "px"],
+				["template-punctuation", "`"]
 			]],
 			["punctuation", "}"],
 			["punctuation", "}"]

@@ -1,6 +1,7 @@
 var myDivElement = <div className="foo" />;
 var myElement = <MyComponent someProperty={true} />;
 <div {...foo} />
+<Tree.TreeNode.Item leaf={true}></Tree.TreeNode.Item>
 class Test extends Component {
 	render() {
 		return <p onClick={this.clickHandler}>Hello world.</p>;
@@ -35,18 +36,19 @@ class Test extends Component {
 	["tag", [
 		["tag", [
 			["punctuation", "<"],
-			"MyComponent"
+			["class-name", "MyComponent"]
 		]],
 		["attr-name", ["someProperty"]],
 		["script", [
-			 ["script-punctuation", "="],
-			 ["punctuation", "{"],
-			 ["boolean", "true"],
-			 ["punctuation", "}"]
+			["script-punctuation", "="],
+			["punctuation", "{"],
+			["boolean", "true"],
+			["punctuation", "}"]
 		]],
 		["punctuation", "/>"]
 	]],
 	["punctuation", ";"],
+
 	["tag", [
 		["tag", [
 			["punctuation", "<"],
@@ -54,23 +56,47 @@ class Test extends Component {
 		]],
 		["spread", [
 			["punctuation", "{"],
-			["punctuation", "..."],
-			["attr-value", "foo"],
+			["operator", "..."],
+			"foo",
 			["punctuation", "}"]
 		]],
 		["punctuation", "/>"]
 	]],
 
-	["keyword",  "class"],
+	["tag", [
+		["tag", [
+			["punctuation", "<"],
+			["class-name", "Tree.TreeNode.Item"]
+		]],
+		["attr-name", ["leaf"]],
+		["script", [
+			["script-punctuation", "="],
+			["punctuation", "{"],
+			["boolean", "true"],
+			["punctuation", "}"]
+		]],
+		["punctuation", ">"]
+	]],
+	["tag", [
+		["tag", [
+			["punctuation", "</"],
+			["class-name", "Tree.TreeNode.Item"]
+		]],
+		["punctuation", ">"]
+	]],
+
+	["keyword", "class"],
 	["class-name", ["Test"]],
 	["keyword", "extends"],
 	["class-name", ["Component"]],
 	["punctuation", "{"],
+
 	["function", "render"],
 	["punctuation", "("],
 	["punctuation", ")"],
 	["punctuation", "{"],
-	["keyword","return"],
+
+	["keyword", "return"],
 	["tag", [
 		["tag", [
 			["punctuation", "<"],
@@ -96,8 +122,10 @@ class Test extends Component {
 		["punctuation", ">"]
 	]],
 	["punctuation", ";"],
+
 	["punctuation", "}"],
-	["punctuation","}"]
+
+	["punctuation", "}"]
 ]
 
 ----------------------------------------------------

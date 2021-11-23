@@ -6,14 +6,14 @@
 	["tag", [
 		["tag", [
 			["punctuation", "<"],
-			"Child"
+			["class-name", "Child"]
 		]],
 		["spread", [
 			["punctuation", "{"],
-			["punctuation", "..."],
-			["attr-value", "this"],
+			["operator", "..."],
+			["keyword", "this"],
 			["punctuation", "."],
-			["attr-value", "props"],
+			"props",
 			["punctuation", "}"]
 		]],
 		["punctuation", ">"]
